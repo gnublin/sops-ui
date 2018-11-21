@@ -1,0 +1,70 @@
+// MIT License
+// Copyright (c) 2018 Gauthier FRANCOIS
+- if @error == 0
+  form action="/edit" method="POST"
+    - params['disable'] == 'false' ? param_disable = false : param_disable = true
+    .uk-sticky style="z-index: 980;" uk-sticky="bottom: #offset"
+      p.uk-margin.uk-background-default
+          input.button.uk-button.uk-button-default.uk-background-muted type="submit" value="Save" id="disabled_input" disabled='true'
+          button.uk-button.uk-button-default type="button" onClick="manage_active('#disabled_input')"
+            div.toggle-edit hidden="true" uk-toggle="target: .toggle-edit"= "view"
+            div.toggle-edit uk-toggle="target: .toggle-edit"= "edit"
+          a.uk-button.uk-button-default href="/edit?secret_file=#{params[:secret_file]}&format=#{@format_link}"= "As #{@format_link}"
+          a.uk-button.uk-button-default.uk-button-danger uk-toggle="target: #modal-delete" Delete
+          a.uk-button.uk-button-default href="/view?path=#{File.split(params[:secret_file])[0]}" Back
+          a href="#" uk-totop=true uk-scroll=true
+    input type="hidden" name="secret_file" value="#{params[:secret_file]}"
+    br
+    = "Filename: #{params[:secret_file]}"
+    br
+    ="Content:"
+    textarea.uk-textarea.uk-form-small.uk-height-large.uk-background-muted disabled='true' name="content" id="disabled_input" ="#{@json_decode.to_yaml}"
+  .uk-modal id="modal-delete" uk-modal=""
+      .uk-modal-dialog.uk-modal-body
+          h2.uk-modal-title = "Are you sure?"
+          button.uk-button.uk-button-default.uk-modal-close type="button" Cancel
+          a.uk-button.uk-button-danger type="button" href="/delete?secret_file=#{params[:secret_file]}" Delete
+
+javascript:
+  function manage_active(id_sel) {
+    document.querySelectorAll(id_sel).forEach(
+       function(a){
+         if (a.getAttribute('disabled') == 'true') {
+          a.removeAttribute('disabled');
+          a.classList.remove('uk-background-muted');
+          a.classList.add('uk-background-primary');
+         }
+         else {
+          a.setAttribute('disabled', 'true');
+          a.classList.remove('uk-background-primary');
+          a.classList.add('uk-background-muted');
+         }
+       }
+    )
+  }
+
+  var anchor_location = location.hash.substring(1);
+  if ( anchor_location != '' ) {
+    console.log(anchor_location);
+    anchor_el = document.getElementById(anchor_location).parentNode;
+    anchor_el.classList.add('cl-background-light');
+  }
+
+css:
+  .cl-background-light {
+    background-color: skyblue;
+
+  }
+
+  code {
+    counter-increment: line;
+  }
+  code:before {
+    content: counter(line);
+  }
+  .cl-edit-anchor {
+    display: block;
+    position: relative;
+    top: -100px;
+    visibility: hidden;
+  }

@@ -1,0 +1,9 @@
+development.yml
+node_modul*
+public*
+brunch*
+*.log
+templates*
+run
+docker-compose-vol.yml
+tests/data_bags/test1.json

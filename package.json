@@ -1,0 +1,8 @@
+{
+    "name": "sops-ui",
+    "private": true,
+    "dependencies": {
+        "@fortawesome/fontawesome-free": "*",
+        "uikit": "3.0.0-rc.4"
+    }
+}
