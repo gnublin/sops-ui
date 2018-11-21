@@ -104,7 +104,8 @@ class SopsUI < Sinatra::Application
 
     case @error
     when 1
-      @message = {type: 'error', msg: "Can't descrypt file. Please check your permissions or your credential providers" }
+      @message =
+        { type: 'error', msg: "Can't descrypt file. Please check your permissions or your credential providers" }
     end
     slim :edit
   end

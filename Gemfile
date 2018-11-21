@@ -3,11 +3,11 @@ source 'https://rubygems.org'
 gem 'activesupport', require: 'active_support/all'
 gem 'hashdiff'
 
+gem 'rack', '>= 2.0.6'
 gem 'rspec', require: false
 gem 'rubocop', '0.50.0'
 gem 'sinatra', '~> 2.0.1', require: 'sinatra/base'
 gem 'sinatra-contrib'
-gem "rack", ">= 2.0.6"
 gem 'slim'
 
 group :development do
