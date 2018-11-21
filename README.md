@@ -1,4 +1,4 @@
-# sops-ui [![Build Status](https://travis-ci.org/gnublin/chef-dbwm.svg?branch=master)](https://travis-ci.org/gnublin/chef-dbwm)
+# sops-ui [![Build Status](https://travis-ci.org/gnublin/sops-ui.svg?branch=master)](https://travis-ci.org/gnublin/sops-ui)
 
 Sops-ui is an open-source software to manage [mozilla/sops#aws-kms-encryption-context](https://github.com/mozilla/sops#aws-kms-encryption-context) secrets
 
