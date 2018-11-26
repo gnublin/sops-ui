@@ -9,10 +9,8 @@
           button.uk-button.uk-button-default type="button" onClick="manage_active('#disabled_input')"
             div.toggle-edit hidden="true" uk-toggle="target: .toggle-edit"= "view"
             div.toggle-edit uk-toggle="target: .toggle-edit"= "edit"
-          a.uk-button.uk-button-default href="/edit?secret_file=#{params[:secret_file]}&format=#{@format_link}"= "As #{@format_link}"
           a.uk-button.uk-button-default.uk-button-danger uk-toggle="target: #modal-delete" Delete
-          a.uk-button.uk-button-default href="/view?path=#{File.split(params[:secret_file])[0]}" Back
-          a href="#" uk-totop=true uk-scroll=true
+          a.uk-button.uk-button-default href="/view?dir=#{File.split(params[:secret_file])[0]}" Back
     input type="hidden" name="secret_file" value="#{params[:secret_file]}"
     br
     = "Filename: #{params[:secret_file]}"
