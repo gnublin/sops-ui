@@ -39,7 +39,7 @@ Ex: `config/development.yml`
 ```yaml
 ---
 sops_config:
-  sops_binary: '/home/gauth/go/bin/sops'
+  sops_binary: '/home/user/go/bin/sops'
   sops_folders:
     dev:
       path: /home/user/secrets-profile-1
