@@ -96,10 +96,15 @@ class SopsUI < Sinatra::Application
     aws_profile = @secrets_dir[secret_dir]['aws_profile']
     @yaml_content = %x(export AWS_PROFILE=#{aws_profile} && sops -d #{file_path})
     @error = @yaml_content.empty? ? 1 : 0
+    decode_64 =
+      begin
+        YAML.safe_load(@yaml_content)
+      rescue Psych::SyntaxError
+        @error = 2
+      end
 
     case @error
     when 0
-      decode_64 = YAML.safe_load(@yaml_content)
       @json_decode = decode_64.clone
       decode_64['data'].each do |key_plain, v_64|
         @json_decode['data'][key_plain] = Base64.decode64(v_64)
@@ -107,6 +112,8 @@ class SopsUI < Sinatra::Application
     when 1
       @message =
         { type: 'error', msg: "Can't descrypt file. Please check your permissions or your credential providers" }
+    when 2
+      @message = { type: 'error', msg: "#{file_path} is not in YAML format" }
     end
     slim :edit
   end
@@ -118,17 +125,48 @@ class SopsUI < Sinatra::Application
     aws_profile = @secrets_dir[secret_dir]['aws_profile']
     kms_arn = @secrets_dir[secret_dir]['kms_arn']
     file_path = Helpers.real_path(base_path, relative_path)
-    json_encode = YAML.safe_load(params['content'])
-    encode_64 = json_encode.clone
-    json_encode['data'].each do |key_plain, v_64|
-      json_encode['data'][key_plain] = Base64.encode64(v_64)
+
+    @yaml_content = %x(export AWS_PROFILE=#{aws_profile} && sops -d #{file_path})
+    @error = @yaml_content.empty? ? 1 : 0
+    old_encoded_data = YAML.safe_load(@yaml_content)
+    @error = 0
+    json_encode =
+      begin
+        YAML.safe_load(params['content'])
+      rescue Psych::SyntaxError
+        @error = 1
+      end
+
+    if @error != 0
+      session[:message] = {type: 'error', msg: 'Please respect the YAML format' }
+      redirect request.referer
     end
 
-    tmp = Tempfile.new ['sops64', '.yml']
-    tmp.write encode_64.to_yaml
-    tmp.close
-    new_content = %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} && sops -e #{tmp.path})
-    File.write(file_path, new_content)
+    json_encode['data'].each do |key_plain, v_64|
+      json_encode['data'][key_plain] = Base64.encode64(v_64.to_s)
+    end
+
+    res = nil
+    diffs = HashDiff.diff(old_encoded_data, json_encode)
+    diffs.each do |diff|
+      case diff[0]
+      when '~'
+        to_change = diff[3]
+      when '+'
+        to_change = diff[2]
+      when '-'
+        to_change = ''
+      end
+
+      j_path_1, j_path_2 = diff[1].split('.')
+      j_path = j_path_2.nil? ? "[\"#{j_path_1}\"]" : "[\"#{j_path_1}\"][\"#{j_path_2}\"]"
+      to_rm = j_path_2 ? j_path_2 : j_path_1
+      res =
+        %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
+          sops --set '#{j_path} #{to_change.dump}' #{file_path})
+      %x(sed -i '/.*#{to_rm}:/d' #{file_path}) if to_change.empty?
+    end
+
     redirect "/edit?secret_file=#{params[:secret_file]}"
   end
 
