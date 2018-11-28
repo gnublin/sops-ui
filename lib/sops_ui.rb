@@ -138,7 +138,7 @@ class SopsUI < Sinatra::Application
       end
 
     if @error != 0
-      session[:message] = {type: 'error', msg: "Please respect the YAML format" }
+      session[:message] = {type: 'error', msg: 'Please respect the YAML format' }
       redirect request.referer
     end
 
