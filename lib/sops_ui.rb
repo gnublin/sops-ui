@@ -17,6 +17,15 @@ require 'base64'
 require 'tempfile'
 
 require_relative 'helpers.rb'
+YAML_SAMPLE = '
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace:
+  name:
+data:
+'
 
 class SopsUI < Sinatra::Application
   register Sinatra::ConfigFile
@@ -211,7 +220,9 @@ class SopsUI < Sinatra::Application
 
   get '/create' do
     templates_dir = SOPS_CONFIG['templates_dir']
+    @secret_used = SOPS_CONFIG['sops_folders'][params[:dir]]['aws_profile']
     @templates = {}
+    @content = YAML.safe_load(YAML_SAMPLE)
     templates_dir&.each do |tpl_name, tpl_dir|
       Dir.entries(tpl_dir).each do |tpl_file|
         next if tpl_file.match?(/^\.$/)
@@ -228,28 +239,55 @@ class SopsUI < Sinatra::Application
         end
       end
     end
-    if params['template']
+    if params[:template]
       begin
         tpl_dir, tpl_name = params['template'].split(':')
         tpl_file = "#{SOPS_CONFIG['templates_dir'][tpl_dir]}/#{tpl_name}"
         read_file = File.read(tpl_file)
         begin
-          plain_data = YAML.safe_load(read_file)
+          @content = YAML.safe_load(read_file)
           @error = 0
         rescue Psych::SyntaxError
           @error = 1
-          @message = {type: 'error', msg: 'Selected template is not in JSON format' }
+          @message = {type: 'error', msg: 'Selected template is not in YAML format' }
         end
+        @ser
       rescue Errno::ENOENT
         @error = 1
         @message = {type: 'error', msg: "Template #{params['tempalte']} not found" }
       end
     end
-    @json_content = plain_data
     slim :create
   end
 
   post '/create' do
+    res = nil
+    secret_dir, relative_path = params[:dir].split(':')
+    base_path = @secrets_dir[secret_dir]['path']
+
+    aws_profile = @secrets_dir[secret_dir]['aws_profile']
+    kms_arn = @secrets_dir[secret_dir]['kms_arn']
+    file_path = Helpers.real_path(base_path, relative_path)
+    file_name = "#{file_path}/#{params[:file_name]}.yml"
+    yaml_content = YAML.safe_load(params[:content])
+    data_content = yaml_content.delete('data')
+    yaml_content['data'] = {}
+    data_content.map do |a, b|
+      yaml_content['data'][a] = ''
+      data_content[a] = Base64.encode64(b.to_s)
+    end
+
+    File.write(file_name, yaml_content.to_yaml)
+    yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name})
+    if yaml_skelton.empty?
+      data_content.each do |data_name, data_val|
+        res =
+          %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
+            sops --set '["data"]["#{data_name}"] #{data_val.dump}' #{file_name})
+      end
+    end
+    redirect "/edit?secret_file=#{params[:dir]}:/#{params[:file_name]}.yml"
+    raise 't'
   end
 
   get '/settings' do
