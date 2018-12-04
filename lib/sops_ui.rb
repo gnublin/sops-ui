@@ -280,10 +280,12 @@ class SopsUI < Sinatra::Application
 
     File.write(file_name, yaml_content.to_yaml)
     yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name})
-    data_content.each do |data_name, data_val|
-      res =
-        %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
-          sops --set '["data"]["#{data_name}"] #{data_val.dump}' #{file_name})
+    if yaml_skelton.empty?
+      data_content.each do |data_name, data_val|
+        res =
+          %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
+            sops --set '["data"]["#{data_name}"] #{data_val.dump}' #{file_name})
+      end
     end
     redirect "/edit?secret_file=#{params[:dir]}:/#{params[:file_name]}.yml"
     raise 't'
