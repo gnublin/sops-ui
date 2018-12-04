@@ -262,7 +262,6 @@ class SopsUI < Sinatra::Application
 
   post '/create' do
     res = nil
-    yaml_skelton = nil
     secret_dir, relative_path = params[:dir].split(':')
     base_path = @secrets_dir[secret_dir]['path']
 
