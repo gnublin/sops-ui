@@ -119,7 +119,10 @@ class SopsUI < Sinatra::Application
         @json_decode['data'][key_plain] = Base64.decode64(v_64)
       end
     when 1
-      session[:message] = { type: 'error', msg: "Can't descrypt file. Please check your permissions or your credential providers" }
+      session[:message] = {
+        type: 'error',
+        msg: "Can't descrypt file. Please check your permissions or your credential providers"
+      }
       redirect "/view?dir=#{secret_dir}:#{relative_path.split('/')[0...-1].join('/')}"
     when 2
       session[:message] = { type: 'error', msg: "#{file_path} is not in YAML format" }
