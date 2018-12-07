@@ -36,6 +36,8 @@ html
                 - @secrets_dir.each_key do |dir|
                   li: a.uk-text-capitalize href="/view?dir=#{dir}"= dir
           li
+            a.uk-text-capitalize href="/search" Search
+          li
             a.uk-text-capitalize href="/settings" Settings
     .uk-container.uk-container-large.uk-position-relative uk-height-viewport="expand: true"
       - if @message

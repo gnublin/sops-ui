@@ -299,6 +299,68 @@ class SopsUI < Sinatra::Application
     slim :settings
   end
 
+  get '/search' do
+    slim :search
+  end
+
+  post '/search' do
+    @search = {}
+    case_sensitive = params[:case_sensitive] == 'on'
+    search_string = params[:search].strip
+    base_path = @secrets_dir[params[:secret_name]]['path']
+    aws_profile = @secrets_dir[params[:secret_name]]['aws_profile']
+    if search_string.match?(/^[A-Z0-9\ -_]+$/i)
+      Find.find(base_path) do |file|
+        next if File.directory? file
+        @yaml_content = %x(export AWS_PROFILE=#{aws_profile} && sops -d #{file})
+        @error = @yaml_content.empty? ? 1 : 0
+        decode_64 =
+          begin
+            YAML.safe_load(@yaml_content)
+          rescue Psych::SyntaxError
+            @error = 2
+          end
+        next if @error != 0
+        @json_decode = decode_64.clone
+        decode_64['data'].each do |key_plain, v_64|
+          @json_decode['data'][key_plain] = Base64.decode64(v_64)
+        end
+
+        file_grep = {}
+        search_string = "(?i:#{search_string})" if case_sensitive
+        %w[data metadata].each do |to_search|
+          file_grep[to_search] = []
+          @json_decode[to_search].each do |skey, sval|
+            string_matched = ''
+            matched = false
+            scan_key = skey.scan(/#{search_string}/)
+            scan_data = sval.scan(/#{search_string}/)
+            unless scan_key.empty?
+              string_matched = "#{skey}: "
+              matched = true
+            end
+            unless scan_data.empty?
+              string_matched = "#{skey}: " + sval
+              matched = true
+            end
+            next unless matched
+            (scan_key + scan_data).uniq.each do |match_string|
+              string_matched =
+                string_matched.gsub(match_string, "<strong class='uk-text-primary'>#{match_string}</strong>")
+            end
+            file_grep[to_search] << string_matched
+          end
+          file_grep.delete to_search if file_grep[to_search].empty?
+          next if file_grep.empty?
+          @search["#{params['secret_name']}#{file.gsub(base_path, ':')}"] = file_grep
+        end
+      end
+    else
+      @message = {type: 'error', msg: 'Only alphanumeric search' }
+    end
+    slim :search
+  end
+
   get '/' do
     slim :index
   end

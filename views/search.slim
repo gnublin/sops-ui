@@ -1,0 +1,29 @@
+// MIT License
+// Copyright (c) 2018 Gauthier FRANCOIS
+form action='/search' method='POST'
+  .uk-margin
+    ="Bag name: "
+    . uk-form-custom="target: > * > span:first-child"
+      select# name="secret_name"
+        -@secrets_dir.each_key do |name|
+          -if name == params['secret_name']
+            option value="#{name}" selected="selected" = name
+          -else
+            option value="#{name}" = name
+      button class="uk-button uk-button-default" type="button" tabindex="-1"
+        span
+        span uk-icon="icon: chevron-down"
+  input.uk-checkbox type="checkbox" name="case_sensitive" checked=true =" case sensitive"
+  br/
+  input.uk-input.uk-form-width-medium type="text" name='search' value="#{params['search'] if params['search']}"
+  input.button.uk-button.uk-button-default.uk-background-primary type='submit' value='search'
+
+-if @search
+  -@search.each do |file, findings|
+    -findings.each do |type, finding|
+      ul.uk-list.uk-list-striped
+        a href="/edit?secret_file=#{file}" ="#{file}"
+        =" in #{type} section"
+        -finding.each do |found|
+          li
+            ="#{found}".html_safe
