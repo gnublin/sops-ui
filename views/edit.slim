@@ -21,7 +21,7 @@
       .uk-modal-dialog.uk-modal-body
           h2.uk-modal-title = "Are you sure?"
           button.uk-button.uk-button-default.uk-modal-close type="button" Cancel
-          a.uk-button.uk-button-danger type="button" href="/delete?secret_file=#{params[:secret_file]}" Delete
+          a.uk-button.uk-button-danger type="button" href="/delete?name=#{params[:secret_file]}" Delete
 
 javascript:
   function manage_active(id_sel) {
