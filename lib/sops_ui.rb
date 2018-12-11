@@ -103,25 +103,31 @@ class SopsUI < Sinatra::Application
     redirect '/404' if file_path.nil?
 
     aws_profile = @secrets_dir[secret_dir]['aws_profile']
-    @yaml_content = %x(export AWS_PROFILE=#{aws_profile} && sops -d #{file_path})
-    @error = @yaml_content.empty? ? 1 : 0
+    @yaml_content = %x(export AWS_PROFILE=#{aws_profile} && sops -d #{file_path} 2>&1)
     decode_64 =
       begin
         YAML.safe_load(@yaml_content)
       rescue Psych::SyntaxError
-        @error = 2
+        @yaml_content
       end
-
+    @error = decode_64.is_a?(String) ? 1 : 0
     case @error
     when 0
+      base_64 = 0
       @json_decode = decode_64.clone
       decode_64['data'].each do |key_plain, v_64|
-        @json_decode['data'][key_plain] = Base64.decode64(v_64)
+        decoded = Base64.decode64(v_64)
+        base_64 = 1 if decoded.dump.scan(/\\x[a-zA-Z1-9]{1,}/).size > 3
+        @json_decode['data'][key_plain] = decoded
+      end
+      if base_64 == 1 && @message.nil?
+        @message = { type: 'warning', msg: 'Warn: Data values are not encrypted in base64' }
       end
     when 1
+
       session[:message] = {
         type: 'error',
-        msg: "Can't descrypt file. Please check your permissions or your credential providers"
+        msg: @yaml_content
       }
       redirect "/view?dir=#{secret_dir}:#{relative_path.split('/')[0...-1].join('/')}"
     when 2
@@ -224,7 +230,7 @@ class SopsUI < Sinatra::Application
 
   get '/create' do
     templates_dir = SOPS_CONFIG['templates_dir']
-    @secret_used = SOPS_CONFIG['sops_folders'][params[:dir]]['aws_profile']
+    @secret_used = SOPS_CONFIG['sops_folders'][params[:dir].split(':').first]['aws_profile']
     @templates = {}
     @content = YAML.safe_load(YAML_SAMPLE)
     templates_dir&.each do |tpl_name, tpl_dir|
@@ -265,33 +271,47 @@ class SopsUI < Sinatra::Application
   end
 
   post '/create' do
+    error = 0
     res = nil
     secret_dir, relative_path = params[:dir].split(':')
     base_path = @secrets_dir[secret_dir]['path']
-
+    if params[:file_name].empty?
+      session[:message] = {type: 'error', msg: 'Please specify a file name' }
+      redirect "/create?dir=#{params[:dir]}"
+    end
     aws_profile = @secrets_dir[secret_dir]['aws_profile']
     kms_arn = @secrets_dir[secret_dir]['kms_arn']
     file_path = Helpers.real_path(base_path, relative_path)
     file_name = "#{file_path}/#{params[:file_name]}.yml"
     yaml_content = YAML.safe_load(params[:content])
+
+    error = 'Data section is empty' if yaml_content['data'].nil?
+    %w[name namespace].each do |required_param|
+      error = "Metadata #{required_param} section is value" if yaml_content['metadata'][required_param].nil?
+    end
+    if error != 0
+      session[:message] = {type: 'error', msg: error }
+      redirect "/create?dir=#{params[:dir]}"
+    end
     data_content = yaml_content.delete('data')
     yaml_content['data'] = {}
     data_content.map do |a, b|
       yaml_content['data'][a] = ''
       data_content[a] = Base64.encode64(b.to_s)
     end
-
     File.write(file_name, yaml_content.to_yaml)
-    yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name})
-    if yaml_skelton.empty?
+    yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name} 2>&1)
+    if !yaml_skelton.is_a?(String)
       data_content.each do |data_name, data_val|
         res =
           %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
             sops --set '["data"]["#{data_name}"] #{data_val.dump}' #{file_name})
       end
+    else
+      session[:message] = {type: 'error', msg: yaml_skelton }
+      redirect "/create?dir=#{params[:dir]}"
     end
     redirect "/edit?secret_file=#{params[:dir]}:/#{params[:file_name]}.yml"
-    raise 't'
   end
 
   get '/settings' do
@@ -299,7 +319,7 @@ class SopsUI < Sinatra::Application
     slim :settings
   end
 
-  get '/' do
+  get '/*' do
     slim :index
   end
 end
