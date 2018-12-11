@@ -124,7 +124,6 @@ class SopsUI < Sinatra::Application
         @message = { type: 'warning', msg: 'Warn: Data values are not encrypted in base64' }
       end
     when 1
-      @yaml_content.match?(/sops metadata not found/)
 
       session[:message] = {
         type: 'error',
@@ -286,7 +285,7 @@ class SopsUI < Sinatra::Application
     file_name = "#{file_path}/#{params[:file_name]}.yml"
     yaml_content = YAML.safe_load(params[:content])
 
-    error = 'Data section is empty' if yaml_content[:data].nil?
+    error = 'Data section is empty' if yaml_content['data'].nil?
     %w[name namespace].each do |required_param|
       error = "Metadata #{required_param} section is value" if yaml_content['metadata'][required_param].nil?
     end
@@ -301,16 +300,18 @@ class SopsUI < Sinatra::Application
       data_content[a] = Base64.encode64(b.to_s)
     end
     File.write(file_name, yaml_content.to_yaml)
-    yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name})
-    if yaml_skelton.empty?
+    yaml_skelton = %x(export AWS_PROFILE=#{aws_profile} && sops -i -e -k #{kms_arn} #{file_name} 2>&1)
+    if !yaml_skelton.is_a?(String)
       data_content.each do |data_name, data_val|
         res =
           %x(export AWS_PROFILE=#{aws_profile} && export SOPS_KMS_ARN=#{kms_arn} &&\
             sops --set '["data"]["#{data_name}"] #{data_val.dump}' #{file_name})
       end
+    else
+      session[:message] = {type: 'error', msg: yaml_skelton }
+      redirect "/create?dir=#{params[:dir]}"
     end
     redirect "/edit?secret_file=#{params[:dir]}:/#{params[:file_name]}.yml"
-    raise 't'
   end
 
   get '/settings' do
