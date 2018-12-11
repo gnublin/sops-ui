@@ -319,7 +319,7 @@ class SopsUI < Sinatra::Application
     slim :settings
   end
 
-  get '/' do
+  get '/*' do
     slim :index
   end
 end
